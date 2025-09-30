@@ -1,0 +1,48 @@
+body {
+    /* Make sure to replace 'screenshot.png' with the actual name of your image file */
+    background-image: url('Screenshot.png');
+    background-color: #2c3e50; /* Fallback color */
+    background-size: cover; /* Cover the entire page */
+    background-repeat: no-repeat; /* Do not repeat the image */
+    background-position: center; /* Center the image */
+    background-attachment: fixed; /* Keep the image fixed while scrolling */
+    /* Add a smooth transition for background changes */
+    transition: background 0.7s ease-in-out;
+}
+
+/* Emotion-based background gradients */
+
+body.joy {
+    /* Gold to Orange */
+    background-image: linear-gradient(to bottom, #FFD700, #FFA500);
+}
+
+body.sadness {
+    /* Blue to Dark Blue */
+    background-image: linear-gradient(to bottom, #1E90FF, #00008B);
+}
+
+body.anger {
+    /* Orange-Red to Dark Red */
+    background-image: linear-gradient(to bottom, #FF4500, #8B0000);
+}
+
+body.fear {
+    /* Violet to Dark Slate Blue */
+    background-image: linear-gradient(to bottom, #8A2BE2, #483D8B);
+}
+
+body.surprise {
+    /* Hot Pink to Orchid */
+    background-image: linear-gradient(to bottom, #FF69B4, #DA70D6);
+}
+
+body.love {
+    /* Deep Pink to Crimson */
+    background-image: linear-gradient(to bottom, #FF1493, #DC143C);
+}
+
+body.neutral {
+    /* Dark Gray to Dim Gray */
+    background-image: linear-gradient(to bottom, #A9A9A9, #696969);
+}
