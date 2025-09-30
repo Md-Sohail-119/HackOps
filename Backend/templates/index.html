@@ -319,28 +319,72 @@
             }
         }
 
-        // Mood selection (unchanged from original)
-        moodItems.forEach(item => {
-            item.addEventListener('click', () => {
-                // Remove selection from all items
-                moodItems.forEach(i => i.classList.remove('selected'));
-                
-                // Add selection to clicked item
-                item.classList.add('selected');
-                
-                // Clear voice result before showing quick pick results
-                voiceEmotionResult.textContent = ''; 
-                
-                // Show results for selected mood
-                const mood = item.dataset.mood;
-                showMoodResults(mood);
-            });
+        // ... (Your existing JavaScript code before mood selection)
+
+// --- Mood selection (UPDATED) ---
+moodItems.forEach(item => {
+    item.addEventListener('click', () => {
+        // Remove selection from all items
+        moodItems.forEach(i => i.classList.remove('selected'));
+        
+        // Add selection to clicked item
+        item.classList.add('selected');
+        
+        // Clear voice result before showing quick pick results
+        voiceEmotionResult.textContent = ''; 
+        
+        // Send the selected mood to the backend
+        const mood = item.dataset.mood;
+        sendMoodToServer(mood);
+    });
+});
+
+async function sendMoodToServer(moodType) {
+    // Show loading state
+    voiceEmotionResult.textContent = `Finding music for ${moodType.toUpperCase()}...`;
+    resultsGrid.innerHTML = '';
+    resultsSection.classList.add('show');
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+        const response = await fetch('/quick_mood', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ mood: moodType }),
         });
 
-        function showMoodResults(moodType) {
-            const results = moodData[moodType] || moodData.neutral; // Fallback to 'neutral' for unknown/new moods
-            displayResults(results);
+        const data = await response.json();
+
+        if (data.success) {
+            const detectedMood = data.emotion;
+            
+            // Display the result from the backend
+            voiceEmotionResult.innerHTML = `**Quick Pick Mood:** <span style="color: var(--primary-color);">${detectedMood}</span>`;
+            
+            // Use the result (lower-cased key) to display matching frontend data
+            const moodKey = detectedMood.toLowerCase();
+            showMoodResults(moodKey);
+        } else {
+            voiceEmotionResult.textContent = `Error: ${data.message}`;
+            resultsGrid.innerHTML = '';
         }
+
+    } catch (error) {
+        console.error('Mood Submission Error:', error);
+        voiceEmotionResult.textContent = 'Network Error. Could not connect to server.';
+        resultsGrid.innerHTML = '';
+    }
+}
+
+
+function showMoodResults(moodType) {
+    const results = moodData[moodType] || moodData.neutral; // Fallback to 'neutral' for unknown/new moods
+    displayResults(results);
+}
+
+// ... (The rest of your script: showRandomResults, displayResults)
 
         function showRandomResults() {
             const moods = Object.keys(moodData);
