@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Emotion Analyzer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        @keyframes pulse-record {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .recording-pulse { animation: pulse-record 1.5s infinite; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-lg bg-white p-8 rounded-xl shadow-2xl transition-all duration-300">
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Voice Emotion Analyzer</h1>
+        <p class="text-gray-500 mb-6">Record exactly 10 seconds of your voice to analyze your mood.</p>
+
+        <div class="flex flex-col items-center justify-center space-y-4">
+            <div id="status-message" class="text-lg font-semibold text-gray-700 h-6">Ready to record.</div>
+
+            <button id="record-button" 
+                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                    onclick="startRecording()">
+                Start 10-Second Recording
+            </button>
+
+            <div id="timer-display" class="text-4xl font-mono font-bold text-red-500 opacity-0 transition-opacity duration-300">
+                10.0
+            </div>
+        </div>
+
+        <!-- Result -->
+        <div id="result-card" class="mt-8 p-6 bg-indigo-50 border border-indigo-200 rounded-lg shadow-inner hidden">
+            <h2 class="text-xl font-bold text-indigo-700 mb-2">Analysis Result:</h2>
+            <p class="text-gray-700 text-3xl font-extrabold">
+                Predicted Emotion: <span id="predicted-emotion" class="text-indigo-800"></span>
+            </p>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading-spinner" class="mt-8 hidden flex flex-col items-center justify-center space-y-3">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-500"></div>
+            <p class="text-indigo-600 font-medium">Processing audio with simulated model...</p>
+        </div>
+
+        <!-- Error -->
+        <div id="error-box" class="mt-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 hidden rounded">
+            <p class="font-bold">Error:</p>
+            <p id="error-text"></p>
+        </div>
+    </div>
+
+    <script>
+        const RECORD_DURATION_MS = 10000;
+        const API_URL = '/upload_audio';
+        
+        const recordButton = document.getElementById('record-button');
+        const statusMessage = document.getElementById('status-message');
+        const timerDisplay = document.getElementById('timer-display');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const resultCard = document.getElementById('result-card');
+        const predictedEmotion = document.getElementById('predicted-emotion');
+        const errorBox = document.getElementById('error-box');
+        const errorText = document.getElementById('error-text');
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let timerInterval = null;
+        let recordingStartTime = null;
+
+        function setElementVisibility(element, isVisible) {
+            element.classList.toggle('hidden', !isVisible);
+        }
+
+        function updateUI(state) {
+            setElementVisibility(loadingSpinner, state === 'loading');
+            setElementVisibility(resultCard, state === 'ready');
+            setElementVisibility(errorBox, state === 'error');
+            
+            recordButton.disabled = (state === 'recording' || state === 'loading');
+
+            if (state === 'ready') {
+                statusMessage.textContent = 'Analysis complete!';
+                recordButton.textContent = 'Start New 10-Second Recording';
+                recordButton.classList.remove('recording-pulse');
+                setElementVisibility(timerDisplay, false);
+            } else if (state === 'error') {
+                statusMessage.textContent = 'Failed to analyze.';
+                recordButton.textContent = 'Start 10-Second Recording';
+                recordButton.classList.remove('recording-pulse');
+                setElementVisibility(timerDisplay, false);
+            } else if (state === 'initial') {
+                statusMessage.textContent = 'Ready to record.';
+                recordButton.textContent = 'Start 10-Second Recording';
+                recordButton.classList.remove('recording-pulse');
+                setElementVisibility(timerDisplay, false);
+            } else if (state === 'recording') {
+                statusMessage.textContent = 'Recording... Speak now!';
+                recordButton.textContent = 'Recording (10s)';
+                recordButton.classList.add('recording-pulse');
+                setElementVisibility(timerDisplay, true);
+            }
+        }
+
+        function displayError(message) {
+            errorText.textContent = message;
+            updateUI('error');
+        }
+
+        function startTimer() {
+            recordingStartTime = Date.now();
+            timerDisplay.textContent = '10.0';
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - recordingStartTime;
+                const remaining = Math.max(0, RECORD_DURATION_MS - elapsed);
+                timerDisplay.textContent = (remaining / 1000).toFixed(1);
+                
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    stopRecording();
+                }
+            }, 100);
+        }
+
+        async function startRecording() {
+            audioChunks = [];
+            setElementVisibility(resultCard, false);
+            setElementVisibility(errorBox, false);
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    uploadAudio();
+                };
+
+                mediaRecorder.start();
+                startTimer();
+                updateUI('recording');
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    displayError('Microphone access denied. Please allow permissions.');
+                } else {
+                    displayError('Could not access microphone: ' + err.message);
+                }
+                updateUI('initial');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                clearInterval(timerInterval);
+                updateUI('loading');
+            }
+        }
+        
+        async function uploadAudio() {
+            if (audioChunks.length === 0) {
+                displayError('No audio recorded.');
+                return;
+            }
+            
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio_blob', audioBlob, '10_second_recording.webm');
+            
+            try {
+                const response = await fetch(API_URL, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                
+                const data = await response.json();
+                if (data.success) {
+                    predictedEmotion.textContent = data.emotion;
+                    updateUI('ready');
+                } else {
+                    displayError(data.message || 'Analysis failed.');
+                }
+            } catch (error) {
+                displayError('Network/server issue. Ensure Flask app is running.');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => updateUI('initial'));
+    </script>
+</body>
+</html>
