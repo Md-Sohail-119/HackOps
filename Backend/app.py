@@ -4,6 +4,10 @@ import time
 import requests
 from vosk import Model, KaldiRecognizer
 import wave
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, request, jsonify, render_template
 
 # --- App Setup ---
@@ -199,11 +203,76 @@ def quick_mood():
     return jsonify({"success": True, "emotion": detected_emotion})
 
 
+
 # --- Route to serve HTML ---
 @app.route('/')
 def index():
     # Serve the index.html from the 'templates' folder
     return render_template('index.html')
+
+# --- Route to generate songs based on mood ---
+# --- Route to generate songs based on mood ---
+
+def get_supported_model():
+    return "gemini-2.5-flash-preview-09-2025"
+
+def recommend_songs_by_mood(mood, api_key):
+    try:
+        genai.configure(api_key=api_key)
+        model_name = get_supported_model()
+        if not model_name:
+            print("No models support generateContent in your setup.")
+            return None
+        print("Using model:", model_name)
+        model = genai.GenerativeModel(model_name)
+        prompt = f"Recommend 5 popular songs that match the mood: {mood}. List only the song title and artist. Include at least 3 Hindi Songs"
+        response = model.generate_content(prompt)
+        # Try to extract text from Gemini response
+        songs_text = None
+        if hasattr(response, "text") and response.text.strip():
+            songs_text = response.text.strip()
+        elif hasattr(response, "parts") and response.parts:
+            # Sometimes response.parts is a list of dicts with 'text'
+            songs_text = "\n".join([p.get("text", "") for p in response.parts if p.get("text")])
+        elif hasattr(response, "candidates") and response.candidates:
+            # Sometimes response.candidates[0].content.parts[0].text
+            try:
+                songs_text = response.candidates[0].content.parts[0].text.strip()
+            except Exception:
+                songs_text = None
+        if songs_text:
+            return songs_text
+        else:
+            print("No response text received from Gemini API.")
+            return None
+    except Exception as e:
+        print("Error while generating content:", str(e))
+        return None
+
+@app.route('/generate_songs', methods=['POST'])
+def generate_songs():
+    mood = request.form.get('mood', '').strip()
+    if not mood:
+        return render_template('index2.html', songs=[], mood="Unknown", error="No mood provided.")
+
+    api_key = os.getenv("GEMINI_API_KEY", "AIzaSyDII36KZEiYIpdONmgKG-IDXau4hZGLJ5I")
+    songs_text = recommend_songs_by_mood(mood, api_key)
+    songs = []
+    error = None
+    if songs_text:
+        # Parse numbered or bulleted list
+        for line in songs_text.split('\n'):
+            line = line.strip()
+            if line and (line[0].isdigit() or line.startswith('-')):
+                song = line.split('.', 1)[-1].strip()
+                if song:
+                    songs.append(song)
+        if not songs:
+            songs = [l.strip() for l in songs_text.split('\n') if l.strip()]
+    else:
+        error = "Could not fetch recommendations. Please check your API key, internet connection, and Gemini API access."
+
+    return render_template('index2.html', songs=songs, mood=mood, error=error)
 
 if __name__ == '__main__':
     # use_reloader=False is kept as per your original prompt

@@ -49,6 +49,11 @@
                         <div class="recording-dot"></div>
                         <span>Recording... <span id="countdown">10</span>s</span>
                     </div>
+                    <!-- Button to go to index2 (songs page) -->
+                    <form action="/generate_songs" method="post" style="margin-top:20px;">
+                        <input type="hidden" name="mood" id="moodInputForSongs" value="">
+                        <button type="submit" class="voice-button">Go to Songs Page</button>
+                    </form>
                 </div>
             </section>
 
@@ -285,7 +290,8 @@
                 if (data.success) {
                     const detectedMood = data.emotion;
                     voiceEmotionResult.innerHTML = `**Detected Mood:** <span style="color: var(--primary-color);">${detectedMood}</span>`;
-                    
+                    // Set mood for song generation form
+                    document.getElementById('moodInputForSongs').value = detectedMood;
                     // Map Flask emotion result to JS moodData key (convert to lowercase)
                     const moodKey = detectedMood.toLowerCase();
                     showMoodResults(moodKey);
