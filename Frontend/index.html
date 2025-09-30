@@ -46,7 +46,7 @@
                         <h3 class="card-title">Voice Your Mood</h3>
                     </div>
                     <button id="voiceBtn" class="voice-button">
-                        <img src="microphone-alt (1).png" alt="">
+                        <img src="microphone-alt (1).png" alt="" class="mic">
                         <div id="pulseRing" class="pulse-ring"></div>
                     </button>
                     <p class="voice-status">Click to start/stop recording</p>
@@ -141,6 +141,8 @@
         const resultsSection = document.getElementById('resultsSection');
         const resultsGrid = document.getElementById('resultsGrid');
         const moodItems = document.querySelectorAll('.mood-item');
+        const voicelogo = document.querySelector(".mic")
+
 
         // Mood mappings
         const moodData = {
@@ -198,7 +200,7 @@
             
             pulseRing.classList.add('active');
             recordingIndicator.classList.add('active');
-            voiceBtn.innerHTML = '⏹️';
+            voicelogo.src = "pause-circle.png";
             
             recordingTimer = setInterval(() => {
                 countdownValue--;
@@ -216,7 +218,7 @@
             
             pulseRing.classList.remove('active');
             recordingIndicator.classList.remove('active');
-            voiceBtn.innerHTML = '🎤';
+            voicelogo.src = "microphone-alt (1).png";
             
             setTimeout(() => {
                 showRandomResults();
