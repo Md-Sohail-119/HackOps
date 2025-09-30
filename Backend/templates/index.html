@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mood Tune - Mood to Music</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
 <body>
-    <!-- Animated Background -->
     <div class="grid-background"></div>
     
-    <!-- Floating Particles -->
     <div class="particles">
         <div class="particle"></div>
         <div class="particle"></div>
@@ -24,7 +22,6 @@
         <div class="particle"></div>
     </div>
 
-    <!-- Header -->
     <header class="header">
         <div class="container">
             <div class="logo">
@@ -35,10 +32,8 @@
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="container">
         <div class="main-content">
-            <!-- Voice Input Section -->
             <section class="feature-section">
                 <div class="card voice-card">
                     <div class="card-header">
@@ -46,7 +41,7 @@
                         <h3 class="card-title">Voice Your Mood</h3>
                     </div>
                     <button id="voiceBtn" class="voice-button">
-                        <img src="microphone-alt (1).png" alt="">
+                        <img src="{{ url_for('static', filename='microphone-alt (1).png') }}" alt="Microphone icon" class="mic">
                         <div id="pulseRing" class="pulse-ring"></div>
                     </button>
                     <p class="voice-status">Click to start/stop recording</p>
@@ -57,7 +52,6 @@
                 </div>
             </section>
 
-            <!-- Text Input Section -->
             <section class="feature-section">
                 <div class="card">
                     <div class="card-header">
@@ -76,7 +70,6 @@
                 </div>
             </section>
 
-            <!-- Quick Mood Selection Section -->
             <section class="feature-section">
                 <div class="card">
                     <div class="card-header">
@@ -117,12 +110,11 @@
             </section>
         </div>
 
-        <!-- Results Section -->
         <section id="resultsSection" class="results-section">
             <h2 class="results-title">Your Personalized Vibes</h2>
+            <p id="voiceEmotionResult" class="voice-emotion-display"></p>
             <div id="resultsGrid" class="results-grid">
-                <!-- Results will be populated here -->
-            </div>
+                </div>
         </section>
     </main>
 
@@ -130,6 +122,8 @@
         let isRecording = false;
         let recordingTimer;
         let countdownValue = 10;
+        let mediaRecorder;
+        let audioChunks = [];
 
         // Elements
         const voiceBtn = document.getElementById('voiceBtn');
@@ -141,8 +135,11 @@
         const resultsSection = document.getElementById('resultsSection');
         const resultsGrid = document.getElementById('resultsGrid');
         const moodItems = document.querySelectorAll('.mood-item');
+        const voicelogo = document.querySelector(".mic");
+        const voiceEmotionResult = document.getElementById('voiceEmotionResult');
 
-        // Mood mappings
+
+        // Mood mappings - Updated to use all moods available in Flask's `detect_emotion`
         const moodData = {
             joy: [
                 { emoji: '🌟', mood: 'Euphoric', energy: 'Very High' },
@@ -159,10 +156,20 @@
                 { emoji: '⚡', mood: 'Aggressive', energy: 'High' },
                 { emoji: '💢', mood: 'Frustrated', energy: 'High' }
             ],
+            calmness: [ // New mood mapping for the Flask side
+                { emoji: '🌿', mood: 'Peaceful', energy: 'Low' },
+                { emoji: '🧘', mood: 'Balanced', energy: 'Medium' },
+                { emoji: '🌸', mood: 'Serene', energy: 'Low' }
+            ],
             fear: [
                 { emoji: '🌊', mood: 'Anxious', energy: 'Medium' },
                 { emoji: '🌫️', mood: 'Uncertain', energy: 'Low' },
                 { emoji: '❄️', mood: 'Tense', energy: 'Medium' }
+            ],
+            disgust: [ // New mood mapping for the Flask side
+                { emoji: '🤢', mood: 'Repulsed', energy: 'Medium' },
+                { emoji: '🤮', mood: 'Aversive', energy: 'High' },
+                { emoji: '🪨', mood: 'Dismayed', energy: 'Medium' }
             ],
             surprise: [
                 { emoji: '✨', mood: 'Amazed', energy: 'High' },
@@ -181,8 +188,72 @@
             ]
         };
 
-        // Voice recording
+        // Voice recording logic
         voiceBtn.addEventListener('click', toggleRecording);
+
+        async function startRecording() {
+            if (!navigator.mediaDevices) {
+                alert("Your browser doesn't support media devices (microphone).");
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    // Stop the stream tracks after recording ends
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Proceed to send the audio to the backend
+                    sendAudioToServer(audioChunks);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                countdownValue = 10;
+                voiceEmotionResult.textContent = ''; // Clear previous result
+                
+                pulseRing.classList.add('active');
+                recordingIndicator.classList.add('active');
+                voicelogo.src = "{{ url_for('static', filename='pause-circle.png') }}";
+                
+                // Start countdown
+                recordingTimer = setInterval(() => {
+                    countdownValue--;
+                    countdown.textContent = countdownValue;
+                    
+                    if (countdownValue <= 0) {
+                        stopRecording();
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                alert("Error: Could not access microphone. Please check your permissions.");
+                isRecording = false;
+                pulseRing.classList.remove('active');
+                voicelogo.src = "{{ url_for('static', filename='microphone-alt (1).png') }}";
+            }
+        }
+
+        function stopRecording() {
+            if (isRecording && mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            clearInterval(recordingTimer);
+            
+            pulseRing.classList.remove('active');
+            recordingIndicator.classList.remove('active');
+            voicelogo.src = "{{ url_for('static', filename='microphone-alt (1).png') }}";
+            // The rest of the process (sending to server and showing results) happens in mediaRecorder.onstop
+        }
 
         function toggleRecording() {
             if (isRecording) {
@@ -192,38 +263,45 @@
             }
         }
 
-        function startRecording() {
-            isRecording = true;
-            countdownValue = 10;
-            
-            pulseRing.classList.add('active');
-            recordingIndicator.classList.add('active');
-            voiceBtn.innerHTML = '⏹️';
-            
-            recordingTimer = setInterval(() => {
-                countdownValue--;
-                countdown.textContent = countdownValue;
+        async function sendAudioToServer(chunks) {
+            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio_blob', audioBlob, 'recording.webm');
+
+            // Temporarily show a processing message
+            voiceEmotionResult.textContent = 'Processing voice...';
+            resultsGrid.innerHTML = '';
+            resultsSection.classList.add('show');
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+            try {
+                const response = await fetch('/upload_audio', {
+                    method: 'POST',
+                    body: formData,
+                });
                 
-                if (countdownValue <= 0) {
-                    stopRecording();
+                const data = await response.json();
+                
+                if (data.success) {
+                    const detectedMood = data.emotion;
+                    voiceEmotionResult.innerHTML = `**Detected Mood:** <span style="color: var(--primary-color);">${detectedMood}</span>`;
+                    
+                    // Map Flask emotion result to JS moodData key (convert to lowercase)
+                    const moodKey = detectedMood.toLowerCase();
+                    showMoodResults(moodKey);
+                } else {
+                    voiceEmotionResult.textContent = `Error: ${data.message}`;
+                    resultsGrid.innerHTML = '';
                 }
-            }, 1000);
+
+            } catch (error) {
+                console.error('Upload Error:', error);
+                voiceEmotionResult.textContent = 'Network Error. Could not connect to server.';
+                resultsGrid.innerHTML = '';
+            }
         }
 
-        function stopRecording() {
-            isRecording = false;
-            clearInterval(recordingTimer);
-            
-            pulseRing.classList.remove('active');
-            recordingIndicator.classList.remove('active');
-            voiceBtn.innerHTML = '🎤';
-            
-            setTimeout(() => {
-                showRandomResults();
-            }, 500);
-        }
-
-        // Text input
+        // Text input (unchanged from original)
         textSubmit.addEventListener('click', handleTextSubmit);
         textInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -235,11 +313,13 @@
             const text = textInput.value.trim();
             if (text) {
                 textInput.value = '';
+                // Since this is a frontend-only simulation, we'll clear the voice result and show random moods
+                voiceEmotionResult.textContent = ''; 
                 showRandomResults();
             }
         }
 
-        // Mood selection
+        // Mood selection (unchanged from original)
         moodItems.forEach(item => {
             item.addEventListener('click', () => {
                 // Remove selection from all items
@@ -248,6 +328,9 @@
                 // Add selection to clicked item
                 item.classList.add('selected');
                 
+                // Clear voice result before showing quick pick results
+                voiceEmotionResult.textContent = ''; 
+                
                 // Show results for selected mood
                 const mood = item.dataset.mood;
                 showMoodResults(mood);
@@ -255,7 +338,7 @@
         });
 
         function showMoodResults(moodType) {
-            const results = moodData[moodType] || moodData.joy;
+            const results = moodData[moodType] || moodData.neutral; // Fallback to 'neutral' for unknown/new moods
             displayResults(results);
         }
 
@@ -293,5 +376,5 @@
             resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98722720714347b0',t:'MTc1OTIxODg3Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
