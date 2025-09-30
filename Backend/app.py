@@ -167,6 +167,7 @@ def upload_audio():
     # 4. Return JSON response to the frontend
     return jsonify({"success": True, "emotion": emotion_result})
 
+
 # --- Route to Handle Text Submission (Describe Your Vibe) ---
 @app.route('/process_text', methods=['POST'])
 def process_text():
@@ -176,7 +177,8 @@ def process_text():
     if not text:
         return jsonify({"success": False, "message": "No text provided."}), 400
 
-    # Detect emotion from text (logging happens inside this function)
+    # Use Vosk to predict emotion from text (simulate speech-to-text for text input)
+    # For text input, just use the same logic as detect_emotion_from_text
     emotion_result = detect_emotion_from_text(text)
 
     return jsonify({"success": True, "emotion": emotion_result})

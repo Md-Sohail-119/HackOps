@@ -315,13 +315,39 @@
             }
         });
 
-        function handleTextSubmit() {
+        async function handleTextSubmit() {
             const text = textInput.value.trim();
             if (text) {
                 textInput.value = '';
-                // Since this is a frontend-only simulation, we'll clear the voice result and show random moods
-                voiceEmotionResult.textContent = ''; 
-                showRandomResults();
+                voiceEmotionResult.textContent = 'Processing text...';
+                resultsGrid.innerHTML = '';
+                resultsSection.classList.add('show');
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+                try {
+                    const response = await fetch('/process_text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ text_input: text }),
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        const detectedMood = data.emotion;
+                        voiceEmotionResult.innerHTML = `**Detected Mood:** <span style="color: var(--primary-color);">${detectedMood}</span>`;
+                        document.getElementById('moodInputForSongs').value = detectedMood;
+                        const moodKey = detectedMood.toLowerCase();
+                        showMoodResults(moodKey);
+                    } else {
+                        voiceEmotionResult.textContent = `Error: ${data.message}`;
+                        resultsGrid.innerHTML = '';
+                    }
+                } catch (error) {
+                    console.error('Text Submit Error:', error);
+                    voiceEmotionResult.textContent = 'Network Error. Could not connect to server.';
+                    resultsGrid.innerHTML = '';
+                }
             }
         }
 
