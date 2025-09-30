@@ -17,7 +17,7 @@ def recommend_songs_by_mood(mood, api_key):
             return None
         print("Using model:", model_name)
         model = genai.GenerativeModel(model_name)
-        prompt = f"Recommend 5 popular songs that match the mood: {mood}. List only the song title and artist."
+        prompt = f"Recommend 5 popular songs that match the mood: {mood}. List only the song title and artist. Include at least 3 Hindi Songs"
         response = model.generate_content(prompt)
         if hasattr(response, "text") and response.text.strip():
             return response.text.strip()
