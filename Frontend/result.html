@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emotion-based Song Recommendations</title>
+</head>
+<body>
+    <h1>Detected Emotion: {{ emotion }}</h1>
+    <h2>Recommended Songs:</h2>
+    <ul>
+        {% for song in songs %}
+        <li>
+            <a href="{{ song.url }}" target="_blank">{{ song.name }}</a> - {{ song.artist }}
+        </li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}">Go Back</a>
+</body>
+</html>
